@@ -13,7 +13,7 @@ rp_module_id="splashscreen"
 rp_module_desc="Configure Splashscreen"
 rp_module_section="main"
 rp_module_repo="git https://github.com/RetroPie/retropie-splashscreens.git master"
-rp_module_flags="noinstclean !all rpi !osmc !xbian"
+rp_module_flags="noinstclean !all !osmc !xbian"
 
 function _update_hook_splashscreen() {
     # make sure splashscreen is always up to date if updating just RetroPie-Setup
@@ -37,6 +37,8 @@ function depends_splashscreen() {
         cp "$md_data/rp-vlc" /etc/apt/preferences.d/
         # try and install vlc to force downgrade
         aptInstall --allow-downgrades vlc
+    elif isPlatform "x11" && ! isPlatform "rpi"; then
+        getDepends mpv
     else
         getDepends vlc
     fi
@@ -67,11 +69,25 @@ _EOF_
 
     iniConfig "=" '"' "$md_inst/asplashscreen.sh"
 
-    if [[ "$__os_debian_ver" -le 10 ]]; then
+    if isPlatform "x11" && ! isPlatform "rpi"; then
+        # Never run an X11 player from the early sysinit service.
+        systemctl disable asplashscreen.service 2>/dev/null || true
+        mkUserDir "$home/.config/autostart"
+        cat > "$home/.config/autostart/retropie-splashscreen.desktop" <<_EOF_
+[Desktop Entry]
+Type=Application
+Name=RetroPie Splashscreen (MPV)
+Exec=$md_inst/asplashscreen.sh start
+Terminal=false
+X-GNOME-Autostart-enabled=true
+_EOF_
+        chown "$__user":"$__group" "$home/.config/autostart/retropie-splashscreen.desktop"
+    elif [[ "$__os_debian_ver" -le 10 ]]; then
         # set vlc mmal layer for Raspberry Pi OS 10 (Buster) or below.
         iniSet "CMD_OPTS" " --mmal-layer 10001"
         # remove 05-splash.sh if present due to previous splashscreen module installing this on rpi4 on Buster
         rm -f /etc/profile.d/05-splash.sh
+    rm -f "$home/.config/autostart/retropie-splashscreen.desktop"
     else
         # install script to kill splashscreen before running autostart scripts when using kms
         cp "$md_data/05-splash.sh" /etc/profile.d/
@@ -112,11 +128,20 @@ function default_splashscreen() {
 }
 
 function enable_splashscreen() {
+    if isPlatform "x11" && ! isPlatform "rpi"; then
+        mkUserDir "$home/.config/autostart"
+        [[ -f "$md_inst/retropie-splashscreen.desktop" ]] && cp "$md_inst/retropie-splashscreen.desktop" "$home/.config/autostart/"
+        # The .desktop installed in install_bin_splashscreen is the default.
+        return
+    fi
     systemctl enable asplashscreen
 }
 
 function disable_splashscreen() {
-    systemctl disable asplashscreen
+    if isPlatform "x11" && ! isPlatform "rpi"; then
+        rm -f "$home/.config/autostart/retropie-splashscreen.desktop"
+    fi
+    systemctl disable asplashscreen 2>/dev/null || true
 }
 
 function configure_splashscreen() {
@@ -243,6 +268,9 @@ function preview_splashscreen() {
     local path
     local file
     local splash_cmd="sudo -u $__user XDG_RUNTIME_DIR=/run/user/$SUDO_UID vlc --intf dummy --quiet --play-and-exit --image-duration 6"
+    if isPlatform "x11" && ! isPlatform "rpi"; then
+        splash_cmd="sudo -u $__user DISPLAY=${DISPLAY:-:0} XDG_RUNTIME_DIR=/run/user/$(id -u "$__user") mpv --no-config --fullscreen --image-display-duration=6 --keep-open=no"
+    fi
     while true; do
         local cmd=(dialog --backtitle "$__backtitle" --menu "Choose an option." 22 86 16)
         local choice=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
