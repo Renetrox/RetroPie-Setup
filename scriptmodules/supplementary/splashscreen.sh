@@ -130,8 +130,15 @@ function default_splashscreen() {
 function enable_splashscreen() {
     if isPlatform "x11" && ! isPlatform "rpi"; then
         mkUserDir "$home/.config/autostart"
-        [[ -f "$md_inst/retropie-splashscreen.desktop" ]] && cp "$md_inst/retropie-splashscreen.desktop" "$home/.config/autostart/"
-        # The .desktop installed in install_bin_splashscreen is the default.
+        cat > "$home/.config/autostart/retropie-splashscreen.desktop" <<_EOF_
+[Desktop Entry]
+Type=Application
+Name=RetroPie Splashscreen (MPV)
+Exec=$md_inst/asplashscreen.sh start
+Terminal=false
+X-GNOME-Autostart-enabled=true
+_EOF_
+        chown "$__user":"$__group" "$home/.config/autostart/retropie-splashscreen.desktop"
         return
     fi
     systemctl enable asplashscreen
@@ -314,7 +321,11 @@ function gui_splashscreen() {
     local cmd=(dialog --backtitle "$__backtitle" --menu "Choose an option." 22 86 16)
     while true; do
         local enabled=0
-        [[ -n "$(find "/etc/systemd/system/"*".wants" -type l -name "asplashscreen.service")" ]] && enabled=1
+        if isPlatform "x11" && ! isPlatform "rpi"; then
+            [[ -f "$home/.config/autostart/retropie-splashscreen.desktop" ]] && enabled=1
+        else
+            [[ -n "$(find "/etc/systemd/system/"*".wants" -type l -name "asplashscreen.service")" ]] && enabled=1
+        fi
         local options=(1 "Choose splashscreen")
         if [[ "$enabled" -eq 1 ]]; then
             options+=(2 "Show splashscreen on boot (currently: Enabled)")
