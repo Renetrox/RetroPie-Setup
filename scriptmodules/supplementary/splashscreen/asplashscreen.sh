@@ -16,7 +16,7 @@ DURATION="${DURATION:-12}"
 (( DURATION > 0 )) || DURATION=12
 image_regex='\.(bmp|jpe?g|gif|png|ppm|tiff|webp)$'
 video_regex='\.(avi|mov|mp4|mkv|3gp|mpg|mpeg|mp3|wav|m4a|aac|ogg|flac|webm)$'
-matches() { [[ "${1,,}" =~ $image_regex|$video_regex ]]; }
+matches() { [[ "${1,,}" =~ $image_regex ]] || [[ "${1,,}" =~ $video_regex ]]; }
 image_file() { [[ "${1,,}" =~ $image_regex ]]; }
 get_list() {
     local path
