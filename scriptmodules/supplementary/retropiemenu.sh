@@ -105,8 +105,11 @@ function configure_retropiemenu()
     local i
     for i in "${!files[@]}"; do
         case "${files[i]}" in
-            audiosettings|raspiconfig|splashscreen)
+            audiosettings|raspiconfig)
                 ! isPlatform "rpi" && continue
+                ;;
+            splashscreen)
+                ! isPlatform "rpi" && ! isPlatform "x11" && continue
                 ;;
             wifi)
                 [[ "$__os_id" != "Raspbian" ]] && continue
